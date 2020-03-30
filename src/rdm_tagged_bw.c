@@ -46,7 +46,6 @@ static int run(void)
 
 	if (!(opts.options & FT_OPT_SIZE)) {
 		for (i = 0; i < TEST_CNT; i++) {
-//		    printf('Test cnt %d', TEST_CNT);
 			if (!ft_use_size(i, opts.sizes_enabled))
 				continue;
 			opts.transfer_size = test_size[i].size;
@@ -97,11 +96,16 @@ int main(int argc, char **argv)
 		opts.dst_addr = argv[optind];
 
 	hints->ep_attr->type = FI_EP_RDM;
-	hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
-	hints->caps = FI_TAGGED;
+	// hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
+	hints->caps = FI_TAGGED | FI_MSG | FI_DIRECTED_RECV;
 	hints->mode = FI_CONTEXT;
-	hints->domain_attr->mr_mode = opts.mr_mode;
-	hints->domain_attr->threading = FI_THREAD_DOMAIN;
+	// hints->domain_attr->mr_mode = opts.mr_mode;
+	// hints->domain_attr->threading = FI_THREAD_DOMAIN;
+        hints->domain_attr->av_type = FI_AV_TABLE;
+        hints->domain_attr->control_progress = FI_PROGRESS_MANUAL;
+        hints->domain_attr->data_progress = FI_PROGRESS_MANUAL;
+        hints->tx_attr->msg_order = FI_ORDER_SAS;
+        hints->rx_attr->msg_order = FI_ORDER_SAS;
 
 	ret = run();
 

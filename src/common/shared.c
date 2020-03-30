@@ -103,7 +103,7 @@ struct fi_eq_attr eq_attr = {
 	.wait_obj = FI_WAIT_UNSPEC
 };
 struct fi_cq_attr cq_attr = {
-	.wait_obj = FI_WAIT_NONE
+	// .wait_obj = FI_WAIT_NONE
 };
 struct fi_cntr_attr cntr_attr = {
 	.events = FI_CNTR_EVENTS_COMP,
@@ -530,7 +530,8 @@ int ft_alloc_ep_res(struct fi_info *fi)
 		else
 			cq_attr.format = FI_CQ_FORMAT_CONTEXT;
 	}
-
+	fprintf(stderr, "Test opts.tx_cq_size %d\n",
+		opts.tx_cq_size);
 	if (opts.options & FT_OPT_CQ_SHARED) {
 		ft_cq_set_wait_attr();
 		cq_attr.size = 0;
@@ -1731,13 +1732,64 @@ ssize_t ft_post_tx_buf(struct fid_ep *ep, fi_addr_t fi_addr, size_t size,
 	if (hints->caps & FI_TAGGED) {
 		op_tag = op_tag ? op_tag : tx_seq;
 		if (data != NO_CQ_DATA) {
+                        fprintf(stderr, "fi_tsenddata");
 			FT_POST(fi_tsenddata, ft_progress, txcq, tx_seq,
 				&tx_cq_cntr, "transmit", ep, op_buf, size,
 				op_mr_desc, data, fi_addr, op_tag, ctx);
 		} else {
-			FT_POST(fi_tsend, ft_progress, txcq, tx_seq,
-				&tx_cq_cntr, "transmit", ep, op_buf, size,
-				op_mr_desc, fi_addr, op_tag, ctx);
+                        // fi_tsend for benchmarking
+			// FT_POST(fi_tsend, ft_progress, txcq, tx_seq,
+			// 	&tx_cq_cntr, "transmit", ep, op_buf, size,
+			// 	op_mr_desc, fi_addr, op_tag, ctx);
+	            do {
+	            	int timeout_save;
+	            	int ret, rc;
+                        struct iovec buffers[1];
+                        buffers[0].iov_base = op_buf;
+                        buffers[0].iov_len = size;
+	            	while (1) {							
+	            		ret = fi_tsendv(ep, buffers, op_mr_desc, 1, fi_addr, op_tag, ctx);
+	            		if (!ret) break;						
+	            		if (ret != -FI_EAGAIN) {				
+	            			FT_PRINTERR("transmit", ret);			
+	            			return ret;					
+	            		}							
+	            		timeout_save = timeout;					
+	            		timeout = 0;						
+	            		rc = ft_progress(txcq, tx_seq, &tx_cq_cntr);
+	            		if (rc && rc != -FI_EAGAIN) {				
+	            			FT_ERR("Failed to get transmit completion");	
+	            			return rc;					
+	            		}							
+	            		timeout = timeout_save;					
+	            	}
+	            	tx_seq++;								
+	            } while (0);
+
+	            // do {
+	            // 	int timeout_save;
+	            // 	int ret, rc;
+                    //     struct iovec buffers[1];
+                    //     buffers[0].iov_base = op_buf;
+                    //     buffers[0].iov_len = size;
+	            // 	while (1) {							
+	            // 		ret = fi_tsend(ep, op_buf, size, op_mr_desc, fi_addr, op_tag, ctx);
+	            // 		if (!ret) break;						
+	            // 		if (ret != -FI_EAGAIN) {				
+	            // 			FT_PRINTERR("transmit", ret);			
+	            // 			return ret;					
+	            // 		}							
+	            // 		timeout_save = timeout;					
+	            // 		timeout = 0;						
+	            // 		rc = ft_progress(txcq, tx_seq, &tx_cq_cntr);
+	            // 		if (rc && rc != -FI_EAGAIN) {				
+	            // 			FT_ERR("Failed to get transmit completion");	
+	            // 			return rc;					
+	            // 		}							
+	            // 		timeout = timeout_save;					
+	            // 	}
+	            // 	tx_seq++;								
+	            // } while (0);
 		}
 	} else {
 		if (data != NO_CQ_DATA) {
@@ -1992,9 +2044,61 @@ ssize_t ft_post_rx_buf(struct fid_ep *ep, size_t size, void *ctx,
 	size = MAX(size, FT_MAX_CTRL_MSG) + ft_rx_prefix_size();
 	if (hints->caps & FI_TAGGED) {
 		op_tag = op_tag ? op_tag : rx_seq;
-		FT_POST(fi_trecv, ft_progress, rxcq, rx_seq, &rx_cq_cntr,
-			"receive", ep, op_buf, size, op_mr_desc, 0, op_tag,
-			0, ctx);
+
+		// FT_POST(fi_trecv, ft_progress, rxcq, rx_seq, &rx_cq_cntr,
+		// 	"receive", ep, op_buf, size, op_mr_desc, 0, op_tag,
+		// 	0, ctx);
+
+	        //    do {
+	        //    	int timeout_save;
+	        //    	int ret, rc;
+                //        // struct iovec buffers[1];
+                //        // buffers[0].iov_base = op_buf;
+                //        // buffers[0].iov_len = size;
+	        //    	while (1) {							
+	        //    		ret = fi_trecv(ep, op_buf, size, op_mr_desc, 0, op_tag, 0, ctx);
+	        //    		// ret = fi_trecv(ep, op_buf, size, op_mr_desc, 0, fi_addr, op_tag, ctx);
+	        //    		if (!ret) break;						
+	        //    		if (ret != -FI_EAGAIN) {				
+	        //    			FT_PRINTERR("receive", ret);			
+	        //    			return ret;					
+	        //    		}							
+	        //    		timeout_save = timeout;					
+	        //    		timeout = 0;						
+	        //    		rc = ft_progress(rxcq, rx_seq, &rx_cq_cntr);
+	        //    		if (rc && rc != -FI_EAGAIN) {				
+	        //    			FT_ERR("Failed to get receive completion");	
+	        //    			return rc;					
+	        //    		}
+	        //    		timeout = timeout_save;
+	        //    	}
+	        //    	rx_seq++;
+	        //    } while (0);
+	            do {
+	            	int timeout_save;
+	            	int ret, rc;
+                        struct iovec buffers[1];
+                        buffers[0].iov_base = op_buf;
+                        buffers[0].iov_len = size;
+	            	while (1) {							
+	            		ret = fi_trecvv(ep, buffers, op_mr_desc, 1, 0, op_tag, 0, ctx);
+	            		if (!ret) break;						
+	            		if (ret != -FI_EAGAIN) {				
+	            			FT_PRINTERR("receive", ret);			
+	            			return ret;					
+	            		}							
+	            		timeout_save = timeout;					
+	            		timeout = 0;						
+	            		rc = ft_progress(rxcq, rx_seq, &rx_cq_cntr);
+	            		if (rc && rc != -FI_EAGAIN) {				
+	            			FT_ERR("Failed to get receive completion");	
+	            			return rc;					
+	            		}
+	            		timeout = timeout_save;
+	            	}
+	            	rx_seq++;
+	            } while (0);
+
 	} else {
 		FT_POST(fi_recv, ft_progress, rxcq, rx_seq, &rx_cq_cntr,
 			"receive", ep, op_buf, size, op_mr_desc, 0, ctx);
@@ -2277,6 +2381,7 @@ int ft_sendmsg(struct fid_ep *ep, fi_addr_t fi_addr,
 	msg_iov.iov_len = size;
 
 	if (hints->caps & FI_TAGGED) {
+                 
 		tagged_msg.msg_iov = &msg_iov;
 		tagged_msg.desc = &mr_desc;
 		tagged_msg.iov_count = 1;

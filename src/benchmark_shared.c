@@ -163,11 +163,13 @@ int bandwidth(void)
 			if (i == opts.warmup_iterations)
 				ft_start();
 
-			if (opts.transfer_size < fi->tx_attr->inject_size)
+			if (opts.transfer_size < fi->tx_attr->inject_size) {
+                                fprintf(stderr, "ft_inject");
 				ret = ft_inject(ep, remote_fi_addr, opts.transfer_size);
-			else
+                        } else {
 				ret = ft_post_tx(ep, remote_fi_addr, opts.transfer_size,
 						 NO_CQ_DATA, &tx_ctx_arr[j].context);
+                        }
 			if (ret)
 				return ret;
 
